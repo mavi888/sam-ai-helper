@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+
+Parameters:
+  NotificationTopicARN:
+    Type: String
+    Default: ''
+  NotificationTopicName:
+    Type: String
+    Default: ''
+  TranslateBucketName:
+    Type: String
+    Default: ''
+  AudioTextBucketName:
+    Type: String
+    Default: ''
+  GetSignedURLFunctionName:
+    Type: String
+    Default: ''
+
+Resources:
+  ##########################################################################
+  #   STEP FUNCTION                                                        #
+  ##########################################################################
+
+  AudioTextStateMachine:
+    Type: 'AWS::Serverless::StateMachine'
+    Properties:
+      DefinitionUri: statemachine/state-machine.asl.yml
+      DefinitionSubstitutions:
+        TranslateBucket: !Ref TranslateBucketName
+        AudioTextBucket: !Ref AudioTextBucketName
+        NotificationTopic: !Ref NotificationTopicARN
+        GetSignedUrlFunction: !Ref GetSignedURLFunctionName
+      Tracing:
+        Enabled: true
+      Events:
+        S3MediaTrigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: default
+            Pattern:
+              source:
+                - aws.s3
+              detail-type:
+                - Object Created
+              detail:
+                bucket:
+                  name:
+                    - !Ref TranslateBucketName
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref AudioTextBucketName
+        - S3WritePolicy:
+            BucketName: !Ref AudioTextBucketName
+        - S3ReadPolicy:
+            BucketName: !Ref TranslateBucketName
+        - S3WritePolicy:
+            BucketName: !Ref TranslateBucketName
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref NotificationTopicName
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetSignedURLFunctionName
+        - CloudWatchPutMetricPolicy: {}
+        - Version: 2012-10-17
+          Statement:
+            - Sid: XrayAccessPolicy
+              Effect: Allow
+              Action:
+                - 'xray:PutTraceSegments'
+                - 'xray:PutTelemetryRecords'
+                - 'xray:GetSamplingRules'
+                - 'xray:GetSamplingTargets'
+                - 'xray:GetSamplingStatisticSummaries'
+              Resource: '*'
+            - Sid: JobPolicy
+              Effect: Allow
+              Action:
+                - 'polly:startSpeechSynthesisTask'
+                - 'polly:getSpeechSynthesisTask'
+              Resource: '*'

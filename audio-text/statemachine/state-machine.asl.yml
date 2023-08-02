@@ -1,0 +1,85 @@
+Comment: Audio to text from a file in Spanish (Part 3)
+StartAt: Get File
+States:
+  Get File:
+    Next: StartSpeechSynthesisTask
+    Type: Task
+    ResultPath: $.body
+    ResultSelector:
+      filecontent.$: $.Body
+    Resource: 'arn:aws:states:::aws-sdk:s3:getObject'
+    Parameters:
+      Bucket.$: $.detail.bucket.name
+      Key.$: $.detail.object.key
+
+  StartSpeechSynthesisTask:
+    Type: Task
+    Next: Wait
+    Parameters:
+      Engine: neural
+      OutputFormat: mp3
+      OutputS3BucketName: ${AudioTextBucket}
+      Text.$: $.body.filecontent
+      TextType: text
+      OutputS3KeyPrefix: audio
+      VoiceId: Pedro
+    Resource: 'arn:aws:states:::aws-sdk:polly:startSpeechSynthesisTask'
+
+  Wait:
+    Next: GetSpeechSynthesisTask
+    Seconds: 60
+    Type: Wait
+
+  GetSpeechSynthesisTask:
+    Type: Task
+    Next: SpeechSynthesisTaskStatus
+    Parameters:
+      TaskId.$: $.SynthesisTask.TaskId
+    Resource: 'arn:aws:states:::aws-sdk:polly:getSpeechSynthesisTask'
+
+  SpeechSynthesisTaskStatus:
+    Choices:
+      - Variable: $.SynthesisTask.TaskStatus
+        StringEquals: completed
+        Next: FormatURI
+      - Variable: $.SynthesisTask.TaskStatus
+        StringEquals: failed
+        Next: Failed
+    Default: Wait
+    Type: Choice
+
+  Failed:
+    Cause: transcription job failed
+    Error: FAILED
+    Type: Fail
+
+  FormatURI:
+    Type: Pass
+    Next: GetSignedURL
+    InputPath: $.SynthesisTask.OutputUri
+    Parameters:
+      uri.$: $
+    ResultPath: $
+
+  GetSignedURL:
+    Type: Task
+    Next: SendNotification
+    Parameters:
+      Payload.$: $
+      FunctionName: ${GetSignedUrlFunction}
+    Resource: 'arn:aws:states:::lambda:invoke'
+    ResultPath: $.Payload
+
+  SendNotification:
+    Type: Task
+    Resource: 'arn:aws:states:::sns:publish'
+    Parameters:
+      TopicArn: ${NotificationTopic}
+      Message:
+        result: 'Text to Audio finalized'
+        audio.$: '$.Payload.Payload'
+        command.$: States.Format('aws s3 cp {} s3://${AudioTextBucket}/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
+    Next: Completed
+
+  Completed:
+    Type: Succeed

@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+
+Parameters:
+  NotificationTopicARN:
+    Type: String
+    Default: ''
+  NotificationTopicName:
+    Type: String
+    Default: ''
+  VideoBucketName:
+    Type: String
+    Default: ''
+  TranscribedBucketName:
+    Type: String
+    Default: ''
+  GetSignedURLFunctionName:
+    Type: String
+    Default: ''
+
+Resources:
+  ##########################################################################
+  #   STEP FUNCTION                                                        #
+  ##########################################################################
+
+  TranscribeStateMachine:
+    Type: 'AWS::Serverless::StateMachine'
+    Properties:
+      DefinitionUri: statemachine/state-machine.asl.yml
+      DefinitionSubstitutions:
+        VideoBucket: !Ref VideoBucketName
+        TranscribedBucket: !Ref TranscribedBucketName
+        NotificationTopic: !Ref NotificationTopicARN
+        GetSignedUrlFunction: !Ref GetSignedURLFunctionName
+      Tracing:
+        Enabled: true
+      Events:
+        S3MediaTrigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: default
+            Pattern:
+              source:
+                - aws.s3
+              detail-type:
+                - Object Created
+              detail:
+                bucket:
+                  name:
+                    - !Ref VideoBucketName
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref VideoBucketName
+        - S3ReadPolicy:
+            BucketName: !Ref TranscribedBucketName
+        - S3WritePolicy:
+            BucketName: !Ref TranscribedBucketName
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref NotificationTopicName
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetSignedURLFunctionName
+        - CloudWatchPutMetricPolicy: {}
+        - Version: 2012-10-17
+          Statement:
+            - Sid: XrayAccessPolicy
+              Effect: Allow
+              Action:
+                - 'xray:PutTraceSegments'
+                - 'xray:PutTelemetryRecords'
+                - 'xray:GetSamplingRules'
+                - 'xray:GetSamplingTargets'
+                - 'xray:GetSamplingStatisticSummaries'
+              Resource: '*'
+            - Sid: TTSJobPolicy
+              Effect: Allow
+              Action:
+                - 'polly:startSpeechSynthesisTask'
+                - 'polly:getSpeechSynthesisTask'
+                - 'translate:TranslateText'
+                - 'comprehend:DetectDominantLanguage'
+                - 'transcribe:StartTranscriptionJob'
+                - 'transcribe:GetTranscriptionJob'
+              Resource: '*'

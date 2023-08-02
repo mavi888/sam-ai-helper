@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+
+Parameters:
+  AudioTextBucketName:
+    Type: String
+    Default: ''
+  VideoBucketName:
+    Type: String
+    Default: ''
+  DubbedBucketName:
+    Type: String
+    Default: ''
+  FmpegLayerARN:
+    Type: String
+    Default: ''
+  GetSignedURLFunctionName:
+    Type: String
+    Default: ''
+  NotificationTopicARN:
+    Type: String
+    Default: ''
+  NotificationTopicName:
+    Type: String
+    Default: ''
+
+Resources:
+  ModifyVideoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: handler.handler
+      Runtime: nodejs16.x
+      MemorySize: 10240
+      Timeout: 600
+      Layers:
+        - !Ref FmpegLayerARN
+      Environment:
+        Variables:
+          OriginalVideoBucketName: !Ref VideoBucketName
+          DubbedAudioBucketName: !Ref AudioTextBucketName
+          ResultBucketName: !Ref DubbedBucketName
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref AudioTextBucketName
+        - S3CrudPolicy:
+            BucketName: !Ref VideoBucketName
+        - S3CrudPolicy:
+            BucketName: !Ref DubbedBucketName
+
+  DubbedStateMachine:
+    Type: 'AWS::Serverless::StateMachine'
+    Properties:
+      DefinitionUri: statemachine/state-machine.asl.yml
+      DefinitionSubstitutions:
+        MakeVideoFunction: !Ref ModifyVideoFunction
+        ResultBucketName: !Ref DubbedBucketName
+        NotificationTopic: !Ref NotificationTopicARN
+        GetSignedUrlFunction: !Ref GetSignedURLFunctionName
+      Tracing:
+        Enabled: true
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref DubbedBucketName
+        - S3WritePolicy:
+            BucketName: !Ref DubbedBucketName
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref NotificationTopicName
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetSignedURLFunctionName
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ModifyVideoFunction
+        - CloudWatchPutMetricPolicy: {}
+        - Version: 2012-10-17
+          Statement:
+            - Sid: XrayAccessPolicy
+              Effect: Allow
+              Action:
+                - 'xray:PutTraceSegments'
+                - 'xray:PutTelemetryRecords'
+                - 'xray:GetSamplingRules'
+                - 'xray:GetSamplingTargets'
+                - 'xray:GetSamplingStatisticSummaries'
+              Resource: '*'

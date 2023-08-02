@@ -1,0 +1,63 @@
+Comment: Translate a TXT file from English to Spanish (Part 2)
+StartAt: GetTranscribedFile
+States:
+  GetTranscribedFile:
+    Comment: 'Gets the transcribed file from the event that triggers the state machine'
+    Type: Task
+    Next: TranslateText
+    Parameters:
+      Bucket.$: $.detail.bucket.name
+      Key.$: $.detail.object.key
+    Resource: 'arn:aws:states:::aws-sdk:s3:getObject'
+    ResultPath: $.result
+
+  TranslateText:
+    Type: Task
+    Next: Store Transcript in S3
+    Resource: 'arn:aws:states:::aws-sdk:translate:translateText'
+    Parameters:
+      SourceLanguageCode: en
+      TargetLanguageCode: es
+      Text.$: $.result.Body
+    ResultPath: $.result
+
+  Store Transcript in S3:
+    Type: Task
+    Next: FormatURI
+    Resource: arn:aws:states:::aws-sdk:s3:putObject
+    ResultPath: $.result
+    Parameters:
+      Bucket: ${TranslateBucket}
+      Key.$: $.detail.object.key
+      Body.$: $.result.TranslatedText
+
+  FormatURI:
+    Type: Pass
+    Next: GetSignedURL
+    InputPath: $
+    Parameters:
+      uri.$: States.Format('https://s3.{}.amazonaws.com/${TranslateBucket}/{}', $.region, $.detail.object.key)
+    ResultPath: $
+
+  GetSignedURL:
+    Type: Task
+    Next: SendNotification
+    Parameters:
+      Payload.$: $
+      FunctionName: ${GetSignedUrlFunction}
+    Resource: 'arn:aws:states:::lambda:invoke'
+    ResultPath: $.Payload
+
+  SendNotification:
+    Type: Task
+    Resource: 'arn:aws:states:::sns:publish'
+    Parameters:
+      TopicArn: ${NotificationTopic}
+      Message:
+        result: 'Translation finalized'
+        translation.$: '$.Payload.Payload'
+        command.$: States.Format('aws s3 cp {} s3://${TranslateBucket}/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
+    Next: Completed
+
+  Completed:
+    Type: Succeed

@@ -1,0 +1,10 @@
+.DS_Store
+not-used.yml
+pieces of state machine.txt
+.vscode/settings.json
+audio-text/samconfig.toml
+common/samconfig.toml
+make-video/.env
+make-video/samconfig.toml
+transcribe/samconfig.toml
+translate/samconfig.toml

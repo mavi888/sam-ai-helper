@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+
+Parameters:
+  Email:
+    Type: String
+    Default: ''
+
+Resources:
+  VideoBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'bucket-${AWS::AccountId}-${AWS::Region}-input-video'
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  VideoBucketBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref VideoBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: HttpsOnly
+            Action: 's3:*'
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref VideoBucket
+                  - /*
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref VideoBucket
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+
+  TranscribedBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'bucket-${AWS::AccountId}-${AWS::Region}-transcribed'
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  TranscribedBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: HttpsOnly
+            Action: 's3:*'
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref TranscribedBucket
+                  - /*
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref TranscribedBucket
+            Condition:
+              Bool:
+                aws:SecureTransport': false
+      Bucket: !Ref TranscribedBucket
+
+  TranslateBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'bucket-${AWS::AccountId}-${AWS::Region}-translate'
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  TranslateBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: HttpsOnly
+            Action: 's3:*'
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref TranslateBucket
+                  - /*
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref TranslateBucket
+            Condition:
+              Bool:
+                aws:SecureTransport': false
+      Bucket: !Ref TranslateBucket
+
+  AudioTextBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'bucket-${AWS::AccountId}-${AWS::Region}-audiotext'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  AudioTextBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: HttpsOnly
+            Action: 's3:*'
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref AudioTextBucket
+                  - /*
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref AudioTextBucket
+            Condition:
+              Bool:
+                aws:SecureTransport': false
+      Bucket: !Ref AudioTextBucket
+
+  DubbedBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'bucket-${AWS::AccountId}-${AWS::Region}-dubbed'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  DubbedBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: HttpsOnly
+            Action: 's3:*'
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref DubbedBucket
+                  - /*
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref DubbedBucket
+            Condition:
+              Bool:
+                aws:SecureTransport': false
+      Bucket: !Ref DubbedBucket
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Ref Email
+          Protocol: email
+
+  GetSignedUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: handler.getSignedURL
+      Runtime: nodejs16.x
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref TranscribedBucket
+        - S3CrudPolicy:
+            BucketName: !Ref TranslateBucket
+        - S3CrudPolicy:
+            BucketName: !Ref AudioTextBucket
+        - S3CrudPolicy:
+            BucketName: !Ref DubbedBucket

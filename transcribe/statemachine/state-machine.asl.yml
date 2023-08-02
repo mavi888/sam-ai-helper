@@ -1,0 +1,95 @@
+Comment: Transcribe a Video in English (Part 1)
+StartAt: TranscribeVideo
+States:
+  TranscribeVideo:
+    Comment: 'Given the input video starts a transcription job'
+    Type: Task
+    Next: WaitForTranscribe
+    Resource: 'arn:aws:states:::aws-sdk:transcribe:startTranscriptionJob'
+    Parameters:
+      Media:
+        MediaFileUri.$: States.Format('s3://{}/{}', $.detail.bucket.name, $.detail.object.key)
+      TranscriptionJobName.$: $$.Execution.Name
+      OutputBucketName: ${TranscribedBucket}
+      OutputKey.$: States.Format('{}.txt', $.detail.object.key)
+      LanguageCode: en-US
+
+  WaitForTranscribe:
+    Next: CheckTranscriptionJobTask
+    Seconds: 60
+    Type: Wait
+
+  CheckTranscriptionJobTask:
+    Type: Task
+    Next: TranscriptionJobStatus
+    Parameters:
+      TranscriptionJobName.$: $$.Execution.Name
+    Resource: 'arn:aws:states:::aws-sdk:transcribe:getTranscriptionJob'
+
+  TranscriptionJobStatus:
+    Type: Choice
+    Choices:
+      - Variable: $.TranscriptionJob.TranscriptionJobStatus
+        StringEquals: COMPLETED
+        Next: 'Get Transcript from Raw Transcription Result'
+      - Variable: $.TranscriptionJob.TranscriptionJobStatus
+        StringEquals: FAILED
+        Next: Failed
+    Default: WaitForTranscribe
+
+  Failed:
+    Cause: transcription job failed
+    Error: FAILED
+    Type: Fail
+
+  Get Transcript from Raw Transcription Result:
+    Next: Store Transcript in S3
+    Type: Task
+    ResultPath: $.transcription
+    ResultSelector:
+      filecontent.$: States.StringToJson($.Body)
+    Resource: 'arn:aws:states:::aws-sdk:s3:getObject'
+    Parameters:
+      Bucket: ${TranscribedBucket}
+      Key.$: States.ArrayGetItem(States.StringSplit($.TranscriptionJob.Transcript.TranscriptFileUri, '/'),3)
+
+  Store Transcript in S3:
+    Type: Task
+    Next: FormatURI
+    Resource: arn:aws:states:::aws-sdk:s3:putObject
+    ResultPath: $.result
+    Parameters:
+      Bucket: ${TranscribedBucket}
+      Key.$: States.ArrayGetItem(States.StringSplit($.TranscriptionJob.Transcript.TranscriptFileUri, '/'),3)
+      Body.$: $.transcription.filecontent.results.transcripts[0].transcript
+
+  FormatURI:
+    Type: Pass
+    Next: GetSignedURL
+    InputPath: $.TranscriptionJob.Transcript.TranscriptFileUri
+    Parameters:
+      uri.$: $
+    ResultPath: $
+
+  GetSignedURL:
+    Type: Task
+    Next: SendNotification
+    Parameters:
+      Payload.$: $
+      FunctionName: ${GetSignedUrlFunction}
+    Resource: 'arn:aws:states:::lambda:invoke'
+    ResultPath: $.Payload
+
+  SendNotification:
+    Type: Task
+    Resource: 'arn:aws:states:::sns:publish'
+    Parameters:
+      TopicArn: ${NotificationTopic}
+      Message:
+        result: 'Transcription finalized'
+        transcription.$: '$.Payload.Payload'
+        command.$: States.Format('aws s3 cp {} s3://${TranscribedBucket}/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
+    Next: Completed
+
+  Completed:
+    Type: Succeed
