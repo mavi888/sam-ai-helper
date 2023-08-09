@@ -1,10 +1,5 @@
-/*! Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  SPDX-License-Identifier: MIT-0
- */
-
 'use strict';
 
-// Configure S3
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
 

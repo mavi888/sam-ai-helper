@@ -88,7 +88,7 @@ States:
       Message:
         result: 'Transcription finalized'
         transcription.$: '$.Payload.Payload'
-        command.$: States.Format('aws s3 cp {} s3://${TranscribedBucket}/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
+        command.$: States.Format('aws s3 cp {} s3://${TranscribedBucket}/validated/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
     Next: Completed
 
   Completed:

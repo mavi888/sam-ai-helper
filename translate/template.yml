@@ -48,6 +48,8 @@ Resources:
                 bucket:
                   name:
                     - !Ref TranscribedBucketName
+                object:
+                  key: [{ prefix: 'validated/' }]
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref TranscribedBucketName

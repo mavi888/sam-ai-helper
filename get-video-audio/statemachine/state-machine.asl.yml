@@ -23,6 +23,7 @@ States:
       TextType: text
       OutputS3KeyPrefix: audio
       VoiceId: Pedro
+    ResultPath: $.taskResult
     Resource: 'arn:aws:states:::aws-sdk:polly:startSpeechSynthesisTask'
 
   Wait:
@@ -34,15 +35,16 @@ States:
     Type: Task
     Next: SpeechSynthesisTaskStatus
     Parameters:
-      TaskId.$: $.SynthesisTask.TaskId
+      TaskId.$: $.taskResult.SynthesisTask.TaskId
+    ResultPath: $.taskResult
     Resource: 'arn:aws:states:::aws-sdk:polly:getSpeechSynthesisTask'
 
   SpeechSynthesisTaskStatus:
     Choices:
-      - Variable: $.SynthesisTask.TaskStatus
+      - Variable: $.taskResult.SynthesisTask.TaskStatus
         StringEquals: completed
-        Next: FormatURI
-      - Variable: $.SynthesisTask.TaskStatus
+        Next: MakeDubbedVideo
+      - Variable: $.taskResult.SynthesisTask.TaskStatus
         StringEquals: failed
         Next: Failed
     Default: Wait
@@ -53,12 +55,20 @@ States:
     Error: FAILED
     Type: Fail
 
+  MakeDubbedVideo:
+    Type: Task
+    Next: FormatURI
+    Parameters:
+      Payload.$: $
+      FunctionName: ${MakeVideoFunction}
+    Resource: 'arn:aws:states:::lambda:invoke'
+
   FormatURI:
     Type: Pass
     Next: GetSignedURL
-    InputPath: $.SynthesisTask.OutputUri
+    InputPath: $.Payload
     Parameters:
-      uri.$: $
+      uri.$: States.Format('https://s3.{}.amazonaws.com/${ResultBucketName}/{}', $.region, $.newVideoName)
     ResultPath: $
 
   GetSignedURL:
@@ -76,9 +86,8 @@ States:
     Parameters:
       TopicArn: ${NotificationTopic}
       Message:
-        result: 'Text to Audio finalized'
-        audio.$: '$.Payload.Payload'
-        command.$: States.Format('aws s3 cp {} s3://${AudioTextBucket}/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
+        result: 'The video finalized.'
+        transcription.$: '$.Payload.Payload'
     Next: Completed
 
   Completed:

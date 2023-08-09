@@ -1,7 +1,3 @@
-/*! Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *  SPDX-License-Identifier: MIT-0
- */
-
 const fs = require('fs');
 const path = require('path');
 const directory = process.env.localTest ? './tmp' : '/tmp/';

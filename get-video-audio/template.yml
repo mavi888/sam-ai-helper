@@ -14,16 +14,48 @@ Parameters:
   AudioTextBucketName:
     Type: String
     Default: ''
+  OriginalVideoBucketName:
+    Type: String
+    Default: ''
   GetSignedURLFunctionName:
+    Type: String
+    Default: ''
+  FinalVideoBucketName:
+    Type: String
+    Default: ''
+  FmpegLayerARN:
     Type: String
     Default: ''
 
 Resources:
+  ModifyVideoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: handler.handler
+      Runtime: nodejs16.x
+      MemorySize: 10240
+      Timeout: 600
+      Layers:
+        - !Ref FmpegLayerARN
+      Environment:
+        Variables:
+          OriginalVideoBucketName: !Ref OriginalVideoBucketName
+          DubbedAudioBucketName: !Ref AudioTextBucketName
+          ResultBucketName: !Ref FinalVideoBucketName
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref AudioTextBucketName
+        - S3CrudPolicy:
+            BucketName: !Ref OriginalVideoBucketName
+        - S3CrudPolicy:
+            BucketName: !Ref FinalVideoBucketName
+
   ##########################################################################
   #   STEP FUNCTION                                                        #
   ##########################################################################
 
-  AudioTextStateMachine:
+  GetDubbedVideoStateMachine:
     Type: 'AWS::Serverless::StateMachine'
     Properties:
       DefinitionUri: statemachine/state-machine.asl.yml
@@ -32,6 +64,8 @@ Resources:
         AudioTextBucket: !Ref AudioTextBucketName
         NotificationTopic: !Ref NotificationTopicARN
         GetSignedUrlFunction: !Ref GetSignedURLFunctionName
+        MakeVideoFunction: !Ref ModifyVideoFunction
+        ResultBucketName: !Ref FinalVideoBucketName
       Tracing:
         Enabled: true
       Events:
@@ -48,6 +82,8 @@ Resources:
                 bucket:
                   name:
                     - !Ref TranslateBucketName
+                object:
+                  key: [{ prefix: 'validated/' }]
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref AudioTextBucketName
@@ -57,8 +93,14 @@ Resources:
             BucketName: !Ref TranslateBucketName
         - S3WritePolicy:
             BucketName: !Ref TranslateBucketName
+        - S3ReadPolicy:
+            BucketName: !Ref FinalVideoBucketName
+        - S3WritePolicy:
+            BucketName: !Ref FinalVideoBucketName
         - SNSPublishMessagePolicy:
             TopicName: !Ref NotificationTopicName
+        - LambdaInvokePolicy:
+            FunctionName: !Ref ModifyVideoFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref GetSignedURLFunctionName
         - CloudWatchPutMetricPolicy: {}

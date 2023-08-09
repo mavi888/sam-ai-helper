@@ -15,11 +15,12 @@ const child_process = require('child_process');
 const { uploadToS3 } = require('./uploadToS3');
 const { tmpCleanup } = require('./tmpCleanup');
 
-const makeVideo = async (event) => {
+const makeVideo = async (videoFileName, audioFileName) => {
 	console.log('start making video');
+
 	// Get settings from the incoming event
-	const originalVideo = event.videoFileName;
-	const dubbedAudio = event.audioFileName;
+	const originalVideo = videoFileName;
+	const dubbedAudio = audioFileName;
 
 	// Get signed URL for original video
 	const paramsOriginal = {

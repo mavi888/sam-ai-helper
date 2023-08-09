@@ -28,7 +28,7 @@ States:
     ResultPath: $.result
     Parameters:
       Bucket: ${TranslateBucket}
-      Key.$: $.detail.object.key
+      Key.$: States.ArrayGetItem(States.StringSplit($.detail.object.key, '/'),1)
       Body.$: $.result.TranslatedText
 
   FormatURI:
@@ -36,7 +36,7 @@ States:
     Next: GetSignedURL
     InputPath: $
     Parameters:
-      uri.$: States.Format('https://s3.{}.amazonaws.com/${TranslateBucket}/{}', $.region, $.detail.object.key)
+      uri.$: States.Format('https://s3.{}.amazonaws.com/${TranslateBucket}/{}', $.region, States.ArrayGetItem(States.StringSplit($.detail.object.key, '/'),1))
     ResultPath: $
 
   GetSignedURL:
@@ -56,7 +56,7 @@ States:
       Message:
         result: 'Translation finalized'
         translation.$: '$.Payload.Payload'
-        command.$: States.Format('aws s3 cp {} s3://${TranslateBucket}/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
+        command.$: States.Format('aws s3 cp {} s3://${TranslateBucket}/validated/', States.ArrayGetItem(States.StringSplit($.uri, '/'),3))
     Next: Completed
 
   Completed:
