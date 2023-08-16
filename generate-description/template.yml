@@ -17,6 +17,9 @@ Parameters:
   DescriptionBucketName:
     Type: String
     Default: ''
+  OpenAPISecretArn:
+    Type: String
+    Default: ''
 
 Resources:
   GenerateVideoDescriptionFunction:
@@ -27,6 +30,12 @@ Resources:
       Runtime: nodejs18.x
       MemorySize: 128
       Timeout: 600
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref OpenAPISecretArn
 
   GenerateVideoDescriptionStateMachine:
     Type: 'AWS::Serverless::StateMachine'
@@ -55,7 +64,7 @@ Resources:
                   name:
                     - !Ref TranslateBucketName
                 object:
-                  key: [{ prefix: 'test/' }] ## CHANGE LATER TO validated/
+                  key: [{ prefix: 'test/' }] ## CHANGE LATER TO validated/ test/ so the endpoint doesnt get hit all the time
       Policies:
         - S3WritePolicy:
             BucketName: !Ref DescriptionBucketName
