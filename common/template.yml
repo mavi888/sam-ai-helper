@@ -116,6 +116,42 @@ Resources:
                 aws:SecureTransport': false
       Bucket: !Ref TranslateBucket
 
+  DescriptionBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'bucket-${AWS::AccountId}-${AWS::Region}-video-description'
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  DescriptionBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: HttpsOnly
+            Action: 's3:*'
+            Effect: Deny
+            Principal: '*'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref DescriptionBucket
+                  - /*
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref DescriptionBucket
+            Condition:
+              Bool:
+                aws:SecureTransport': false
+      Bucket: !Ref DescriptionBucket
+
   AudioTextBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -204,3 +240,5 @@ Resources:
             BucketName: !Ref AudioTextBucket
         - S3CrudPolicy:
             BucketName: !Ref DubbedBucket
+        - S3CrudPolicy:
+            BucketName: !Ref DescriptionBucket

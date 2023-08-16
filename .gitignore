@@ -12,3 +12,4 @@ examples/
 get-video-audio/src/node_modules/
 get-video-audio/samconfig.toml
 get-video-audio/src/package-lock.json
+generate-description/samconfig.toml

@@ -1,0 +1,61 @@
+Comment: Generate description of the video calling GenAI
+StartAt: Get File
+States:
+  Get File:
+    Next: GenerateVideoDescription
+    Type: Task
+    ResultPath: $.body
+    ResultSelector:
+      filecontent.$: $.Body
+    Resource: 'arn:aws:states:::aws-sdk:s3:getObject'
+    Parameters:
+      Bucket.$: $.detail.bucket.name
+      Key.$: $.detail.object.key
+
+  GenerateVideoDescription:
+    Type: Task
+    Next: StoreDescriptionS3
+    Parameters:
+      Payload.$: $
+      FunctionName: ${GenerateVideoDescriptionFunction}
+    Resource: 'arn:aws:states:::lambda:invoke'
+
+  StoreDescriptionS3:
+    Next: FormatURI
+    Type: Task
+    Resource: arn:aws:states:::aws-sdk:s3:putObject
+    Parameters:
+      Bucket: ${DescriptionBucketName}
+      Key.$: $.Payload.key
+      Body.$: $.Payload.description
+    ResultPath: $.result
+
+  FormatURI:
+    Type: Pass
+    Next: GetSignedURL
+    InputPath: $
+    Parameters:
+      uri.$: States.Format('https://s3.{}.amazonaws.com/${DescriptionBucketName}/{}', $.Payload.region, $.Payload.key)
+    ResultPath: $
+
+  GetSignedURL:
+    Type: Task
+    Next: SendNotification
+    Parameters:
+      Payload.$: $
+      FunctionName: ${GetSignedUrlFunction}
+    Resource: 'arn:aws:states:::lambda:invoke'
+    ResultPath: $.Payload
+
+  SendNotification:
+    Type: Task
+    Resource: 'arn:aws:states:::sns:publish'
+    Parameters:
+      TopicArn: ${NotificationTopic}
+      Message:
+        result: 'The description for the video is completed.'
+        description.$: '$.Payload.Payload'
+    Next: Completed
+
+  Completed:
+    Type: Succeed
