@@ -87,7 +87,7 @@ States:
       TopicArn: ${NotificationTopic}
       Message:
         result: 'The video finalized.'
-        transcription.$: '$.Payload.Payload'
+        video.$: '$.Payload.Payload'
     Next: Completed
 
   Completed:
