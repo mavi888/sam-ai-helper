@@ -2,20 +2,9 @@ AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 
 Parameters:
-  NotificationTopicARN:
+  CommonStack:
     Type: String
-    Default: ''
-  NotificationTopicName:
-    Type: String
-    Default: ''
-  VideoBucketName:
-    Type: String
-    Default: ''
-  TranscribedBucketName:
-    Type: String
-    Default: ''
-  GetSignedURLFunctionName:
-    Type: String
+    Description: 'Name of the stack for common resources'
     Default: ''
 
 Resources:
@@ -28,10 +17,18 @@ Resources:
     Properties:
       DefinitionUri: statemachine/state-machine.asl.yml
       DefinitionSubstitutions:
-        VideoBucket: !Ref VideoBucketName
-        TranscribedBucket: !Ref TranscribedBucketName
-        NotificationTopic: !Ref NotificationTopicARN
-        GetSignedUrlFunction: !Ref GetSignedURLFunctionName
+        VideoBucket:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-InputVideoBucket'
+        TranscribedBucket:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-TranscribedBucket'
+        NotificationTopic:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-NotificationTopicArn'
+        GetSignedUrlFunction:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-GetSignedUrlFunction'
       Tracing:
         Enabled: true
       Events:
@@ -47,18 +44,29 @@ Resources:
               detail:
                 bucket:
                   name:
-                    - !Ref VideoBucketName
+                    - Fn::ImportValue:
+                        'Fn::Sub': '${CommonStack}-InputVideoBucket'
       Policies:
         - S3ReadPolicy:
-            BucketName: !Ref VideoBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-InputVideoBucket'
         - S3ReadPolicy:
-            BucketName: !Ref TranscribedBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-TranscribedBucket'
         - S3WritePolicy:
-            BucketName: !Ref TranscribedBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-TranscribedBucket'
         - SNSPublishMessagePolicy:
-            TopicName: !Ref NotificationTopicName
+            TopicName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-NotificationTopicArn'
         - LambdaInvokePolicy:
-            FunctionName: !Ref GetSignedURLFunctionName
+            FunctionName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-GetSignedUrlFunction'
         - CloudWatchPutMetricPolicy: {}
         - Version: 2012-10-17
           Statement:

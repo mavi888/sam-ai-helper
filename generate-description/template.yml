@@ -2,20 +2,9 @@ AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 
 Parameters:
-  NotificationTopicARN:
+  CommonStack:
     Type: String
-    Default: ''
-  NotificationTopicName:
-    Type: String
-    Default: ''
-  TranslateBucketName:
-    Type: String
-    Default: ''
-  GetSignedURLFunctionName:
-    Type: String
-    Default: ''
-  DescriptionBucketName:
-    Type: String
+    Description: 'Name of the stack for common resources'
     Default: ''
   OpenAPISecretArn:
     Type: String
@@ -42,10 +31,18 @@ Resources:
     Properties:
       DefinitionUri: statemachine/state-machine.asl.yml
       DefinitionSubstitutions:
-        TranslateBucket: !Ref TranslateBucketName
-        DescriptionBucketName: !Ref DescriptionBucketName
-        NotificationTopic: !Ref NotificationTopicARN
-        GetSignedUrlFunction: !Ref GetSignedURLFunctionName
+        TranslateBucket:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-TranslateBucket'
+        DescriptionBucketName:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-DescriptionBucket'
+        NotificationTopic:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-NotificationTopicArn'
+        GetSignedUrlFunction:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-GetSignedUrlFunction'
         GenerateVideoDescriptionFunction: !Ref GenerateVideoDescriptionFunction
       Tracing:
         Enabled: true
@@ -62,22 +59,33 @@ Resources:
               detail:
                 bucket:
                   name:
-                    - !Ref TranslateBucketName
+                    - Fn::ImportValue:
+                        'Fn::Sub': '${CommonStack}-TranslateBucket'
                 object:
                   key: [{ prefix: 'test/' }] ## CHANGE LATER TO validated/ test/ so the endpoint doesnt get hit all the time
       Policies:
         - S3WritePolicy:
-            BucketName: !Ref DescriptionBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-DescriptionBucket'
         - S3ReadPolicy:
-            BucketName: !Ref TranslateBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-TranslateBucket'
         - S3WritePolicy:
-            BucketName: !Ref TranslateBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-TranslateBucket'
         - SNSPublishMessagePolicy:
-            TopicName: !Ref NotificationTopicName
+            TopicName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-NotificationTopicArn'
         - LambdaInvokePolicy:
             FunctionName: !Ref GenerateVideoDescriptionFunction
         - LambdaInvokePolicy:
-            FunctionName: !Ref GetSignedURLFunctionName
+            FunctionName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-GetSignedUrlFunction'
         - CloudWatchPutMetricPolicy: {}
         - Version: 2012-10-17
           Statement:

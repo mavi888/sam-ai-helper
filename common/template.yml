@@ -242,3 +242,67 @@ Resources:
             BucketName: !Ref DubbedBucket
         - S3CrudPolicy:
             BucketName: !Ref DescriptionBucket
+
+Outputs:
+  VideoBucket:
+    Description: 'Input S3 bucket where to push the videos to dubb'
+    Value: !Ref VideoBucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-InputVideoBucket'
+
+  TranscribedBucket:
+    Description: 'Bucket where the video are transcribed (speech-to-text)'
+    Value: !Ref TranscribedBucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-TranscribedBucket'
+
+  TranslateBucket:
+    Description: 'Bucket where the transcription is translated'
+    Value: !Ref TranslateBucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-TranslateBucket'
+
+  AudioTextBucket:
+    Description: 'Bucket where the new audio is generated (text-to-speech)'
+    Value: !Ref AudioTextBucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-AudioBucket'
+
+  DubbedBucket:
+    Description: 'Bucket where the dubbed video is stored in the end'
+    Value: !Ref DubbedBucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-DubbedBucket'
+
+  DescriptionBucket:
+    Description: 'Bucket where the description and tags for the video are stored'
+    Value: !Ref DescriptionBucket
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-DescriptionBucket'
+
+  NotificationTopicArn:
+    Description: 'SNS Topic ARN that sends notification to the user'
+    Value: !Ref NotificationTopic
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-NotificationTopicArn'
+
+  NotificationTopicName:
+    Description: 'SNS Topic Name that sends notification to the user'
+    Value: !GetAtt NotificationTopic.TopicName
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-NotificationTopicName'
+
+  GetSignedUrlFunction:
+    Description: 'Function to get a signed URL from an S3 object'
+    Value: !Ref GetSignedUrlFunction
+    Export:
+      Name:
+        'Fn::Sub': '${AWS::StackName}-GetSignedUrlFunction'
