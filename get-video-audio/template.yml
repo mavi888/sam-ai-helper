@@ -2,26 +2,9 @@ AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
 
 Parameters:
-  NotificationTopicARN:
+  CommonStack:
     Type: String
-    Default: ''
-  NotificationTopicName:
-    Type: String
-    Default: ''
-  TranslateBucketName:
-    Type: String
-    Default: ''
-  AudioTextBucketName:
-    Type: String
-    Default: ''
-  OriginalVideoBucketName:
-    Type: String
-    Default: ''
-  GetSignedURLFunctionName:
-    Type: String
-    Default: ''
-  FinalVideoBucketName:
-    Type: String
+    Description: 'Name of the stack for common resources'
     Default: ''
   FmpegLayerARN:
     Type: String
@@ -40,16 +23,28 @@ Resources:
         - !Ref FmpegLayerARN
       Environment:
         Variables:
-          OriginalVideoBucketName: !Ref OriginalVideoBucketName
-          DubbedAudioBucketName: !Ref AudioTextBucketName
-          ResultBucketName: !Ref FinalVideoBucketName
+          OriginalVideoBucketName:
+            Fn::ImportValue:
+              'Fn::Sub': '${CommonStack}-InputVideoBucket'
+          DubbedAudioBucketName:
+            Fn::ImportValue:
+              'Fn::Sub': '${CommonStack}-AudioBucket'
+          ResultBucketName:
+            Fn::ImportValue:
+              'Fn::Sub': '${CommonStack}-DubbedBucket'
       Policies:
         - S3CrudPolicy:
-            BucketName: !Ref AudioTextBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-InputVideoBucket'
         - S3CrudPolicy:
-            BucketName: !Ref OriginalVideoBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-AudioBucket'
         - S3CrudPolicy:
-            BucketName: !Ref FinalVideoBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-DubbedBucket'
 
   ##########################################################################
   #   STEP FUNCTION                                                        #
@@ -60,12 +55,22 @@ Resources:
     Properties:
       DefinitionUri: statemachine/state-machine.asl.yml
       DefinitionSubstitutions:
-        TranslateBucket: !Ref TranslateBucketName
-        AudioTextBucket: !Ref AudioTextBucketName
-        NotificationTopic: !Ref NotificationTopicARN
-        GetSignedUrlFunction: !Ref GetSignedURLFunctionName
+        TranslateBucket:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-TranslateBucket'
+        AudioTextBucket:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-AudioBucket'
+        NotificationTopic:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-NotificationTopicArn'
+        GetSignedUrlFunction:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-GetSignedUrlFunction'
         MakeVideoFunction: !Ref ModifyVideoFunction
-        ResultBucketName: !Ref FinalVideoBucketName
+        ResultBucketName:
+          Fn::ImportValue:
+            'Fn::Sub': '${CommonStack}-DubbedBucket'
       Tracing:
         Enabled: true
       Events:
@@ -81,28 +86,45 @@ Resources:
               detail:
                 bucket:
                   name:
-                    - !Ref TranslateBucketName
+                    - Fn::ImportValue:
+                        'Fn::Sub': '${CommonStack}-TranslateBucket'
                 object:
                   key: [{ prefix: 'validated/' }]
       Policies:
         - S3ReadPolicy:
-            BucketName: !Ref AudioTextBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-AudioBucket'
         - S3WritePolicy:
-            BucketName: !Ref AudioTextBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-AudioBucket'
         - S3ReadPolicy:
-            BucketName: !Ref TranslateBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-TranslateBucket'
         - S3WritePolicy:
-            BucketName: !Ref TranslateBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-TranslateBucket'
         - S3ReadPolicy:
-            BucketName: !Ref FinalVideoBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-DubbedBucket'
         - S3WritePolicy:
-            BucketName: !Ref FinalVideoBucketName
+            BucketName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-DubbedBucket'
         - SNSPublishMessagePolicy:
-            TopicName: !Ref NotificationTopicName
+            TopicName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-NotificationTopicArn'
         - LambdaInvokePolicy:
             FunctionName: !Ref ModifyVideoFunction
         - LambdaInvokePolicy:
-            FunctionName: !Ref GetSignedURLFunctionName
+            FunctionName:
+              Fn::ImportValue:
+                'Fn::Sub': '${CommonStack}-GetSignedUrlFunction'
         - CloudWatchPutMetricPolicy: {}
         - Version: 2012-10-17
           Statement:

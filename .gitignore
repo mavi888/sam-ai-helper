@@ -15,3 +15,6 @@ get-video-audio/src/package-lock.json
 generate-description/samconfig.toml
 generate-description/src/node_modules/
 generate-description/src/package-lock.json
+.aws-sam
+samconfig.toml
+.idea/*
