@@ -7,6 +7,7 @@ Parameters:
     Default: ''
 
 Resources:
+  #Bucket where the original video is uploaded
   VideoBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -44,6 +45,7 @@ Resources:
               Bool:
                 'aws:SecureTransport': false
 
+  #Bucket where the transcribed file is uploaded
   TranscribedBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -80,6 +82,7 @@ Resources:
                 aws:SecureTransport': false
       Bucket: !Ref TranscribedBucket
 
+  #Bucket where the translated file is uploaded
   TranslateBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -116,6 +119,7 @@ Resources:
                 aws:SecureTransport': false
       Bucket: !Ref TranslateBucket
 
+  #Bucket where the assets - title, description and tags are uploaded
   DescriptionBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -152,6 +156,7 @@ Resources:
                 aws:SecureTransport': false
       Bucket: !Ref DescriptionBucket
 
+  #Bucket where the audio file is uploaded
   AudioTextBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -185,6 +190,7 @@ Resources:
                 aws:SecureTransport': false
       Bucket: !Ref AudioTextBucket
 
+  #Bucket where the finalized video is uploaded
   DubbedBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -218,6 +224,7 @@ Resources:
                 aws:SecureTransport': false
       Bucket: !Ref DubbedBucket
 
+  # SNS Topic and subscription that is used to send emails to the end user
   NotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -225,6 +232,7 @@ Resources:
         - Endpoint: !Ref Email
           Protocol: email
 
+  # AWS Lambda function that signs an S3 url to be shared
   GetSignedUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -242,3 +250,32 @@ Resources:
             BucketName: !Ref DubbedBucket
         - S3CrudPolicy:
             BucketName: !Ref DescriptionBucket
+
+Outputs:
+  VideoBucketName:
+    Description: 'Name of the bucket where the original video is uploaded'
+    Value: !Ref VideoBucket
+  TranscribeBucketName:
+    Description: 'Name of the bucket where the transcriptd file is uploaded'
+    Value: !Ref TranscribedBucket
+  TranslatedBucketName:
+    Description: 'Name of the bucket where the translated file is uploaded'
+    Value: !Ref TranslateBucket
+  DescriptionBucketName:
+    Description: 'Name of the bucket where the title, description and tags are uploaded'
+    Value: !Ref DescriptionBucket
+  AudioTextBucketName:
+    Description: 'Name of the bucket where the audio file is uploaded'
+    Value: !Ref AudioTextBucket
+  DubbedBucketName:
+    Description: 'Name of the bucket where the finalized file is uploaded'
+    Value: !Ref DubbedBucket
+  NotificationTopicARN:
+    Description: 'Topic ARN of the topic used to send emails'
+    Value: !Ref NotificationTopic
+  NotificationTopicName:
+    Description: 'Topic name of the topic used to send emails'
+    Value: !GetAtt NotificationTopic.TopicName
+  GetSignedURLFunctionName:
+    Description: 'Function name of the function that signs an s3 url to be shared'
+    Value: !Ref GetSignedUrlFunction

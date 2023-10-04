@@ -22,7 +22,7 @@ States:
       Text.$: $.body.filecontent
       TextType: text
       OutputS3KeyPrefix: audio
-      VoiceId: Pedro
+      VoiceId: Mia
     ResultPath: $.taskResult
     Resource: 'arn:aws:states:::aws-sdk:polly:startSpeechSynthesisTask'
 

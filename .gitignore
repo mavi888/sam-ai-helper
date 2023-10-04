@@ -12,6 +12,6 @@ examples/
 get-video-audio/src/node_modules/
 get-video-audio/samconfig.toml
 get-video-audio/src/package-lock.json
-generate-description/samconfig.toml
-generate-description/src/node_modules/
-generate-description/src/package-lock.json
+generate-assets/.aws-sam/
+generate-assets/samconfig.toml
+common/info.txt

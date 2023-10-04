@@ -17,25 +17,21 @@ Parameters:
   DescriptionBucketName:
     Type: String
     Default: ''
-  OpenAPISecretArn:
-    Type: String
-    Default: ''
 
 Resources:
-  GenerateVideoDescriptionFunction:
+  GenerateVideoMetadataFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
-      Handler: handler.handler
-      Runtime: nodejs18.x
+      Handler: index.lambda_handler
+      Runtime: python3.9
       MemorySize: 128
       Timeout: 600
       Policies:
         - Statement:
             - Effect: Allow
-              Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Ref OpenAPISecretArn
+              Action: 'bedrock:*'
+              Resource: '*'
 
   GenerateVideoDescriptionStateMachine:
     Type: 'AWS::Serverless::StateMachine'
@@ -46,7 +42,7 @@ Resources:
         DescriptionBucketName: !Ref DescriptionBucketName
         NotificationTopic: !Ref NotificationTopicARN
         GetSignedUrlFunction: !Ref GetSignedURLFunctionName
-        GenerateVideoDescriptionFunction: !Ref GenerateVideoDescriptionFunction
+        GenerateVideoDescriptionFunction: !Ref GenerateVideoMetadataFunction
       Tracing:
         Enabled: true
       Events:
@@ -64,7 +60,7 @@ Resources:
                   name:
                     - !Ref TranslateBucketName
                 object:
-                  key: [{ prefix: 'test/' }] ## CHANGE LATER TO validated/ test/ so the endpoint doesnt get hit all the time
+                  key: [{ prefix: 'validated/' }]
       Policies:
         - S3WritePolicy:
             BucketName: !Ref DescriptionBucketName
@@ -75,7 +71,7 @@ Resources:
         - SNSPublishMessagePolicy:
             TopicName: !Ref NotificationTopicName
         - LambdaInvokePolicy:
-            FunctionName: !Ref GenerateVideoDescriptionFunction
+            FunctionName: !Ref GenerateVideoMetadataFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref GetSignedURLFunctionName
         - CloudWatchPutMetricPolicy: {}
