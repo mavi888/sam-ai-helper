@@ -19,20 +19,6 @@ Parameters:
     Default: ''
 
 Resources:
-  GenerateVideoMetadataFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: src/
-      Handler: index.lambda_handler
-      Runtime: python3.9
-      MemorySize: 128
-      Timeout: 600
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action: 'bedrock:*'
-              Resource: '*'
-
   GenerateVideoDescriptionStateMachine:
     Type: 'AWS::Serverless::StateMachine'
     Properties:
@@ -42,7 +28,6 @@ Resources:
         DescriptionBucketName: !Ref DescriptionBucketName
         NotificationTopic: !Ref NotificationTopicARN
         GetSignedUrlFunction: !Ref GetSignedURLFunctionName
-        GenerateVideoDescriptionFunction: !Ref GenerateVideoMetadataFunction
       Tracing:
         Enabled: true
       Events:
@@ -71,8 +56,6 @@ Resources:
         - SNSPublishMessagePolicy:
             TopicName: !Ref NotificationTopicName
         - LambdaInvokePolicy:
-            FunctionName: !Ref GenerateVideoMetadataFunction
-        - LambdaInvokePolicy:
             FunctionName: !Ref GetSignedURLFunctionName
         - CloudWatchPutMetricPolicy: {}
         - Version: 2012-10-17
@@ -86,3 +69,9 @@ Resources:
                 - 'xray:GetSamplingTargets'
                 - 'xray:GetSamplingStatisticSummaries'
               Resource: '*'
+        - BedrockAccessPolicy: {}
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: 'bedrock:InvokeModel'
+              Resource: 'arn:aws:bedrock:us-east-1::foundation-model/ai21.j2-ultra'

@@ -2,7 +2,7 @@ Comment: Generate description of the video calling GenAI
 StartAt: Get File
 States:
   Get File:
-    Next: GenerateVideoDescription
+    Next: Add basic prompt to the output
     Type: Task
     ResultPath: $.body
     ResultSelector:
@@ -12,30 +12,50 @@ States:
       Bucket.$: $.detail.bucket.name
       Key.$: $.detail.object.key
 
-  GenerateVideoDescription:
-    Type: Task
-    Next: StoreDescriptionS3
-    Parameters:
-      Payload.$: $
-      FunctionName: ${GenerateVideoDescriptionFunction}
-    Resource: 'arn:aws:states:::lambda:invoke'
-
-  StoreDescriptionS3:
-    Next: FormatURI
-    Type: Task
-    Resource: arn:aws:states:::aws-sdk:s3:putObject
-    Parameters:
-      Bucket: ${DescriptionBucketName}
-      Key.$: $.Payload.key
-      Body.$: $.Payload.description
-    ResultPath: $.result
-
-  FormatURI:
+  Add basic prompt to the output:
     Type: Pass
-    Next: GetSignedURL
+    Next: Combine prompts
+    ResultPath: $.result
+    Result:
+      basicPrompt: "Given the transcript provided at the end of the prompt, return a JSON object with the following properties: description, titles, and tags. For the description write a compelling description for a YouTube video, that is maximum two paragraphs long and has good SEO. Don't focus on the person who is mentioned in the video, just focus on the content of the video. The result should be in the same language as the input transcription. If the transcript for the video is in spanish the title and description should be in spanish. For the title, return an array of 5 different title options for this video. For the tags, provide an array of 20 tags for the video. Here is the transcript of the video "
+    InputPath: $
+
+  Combine prompts:
+    Type: Pass
+    Next: Create S3 result URI
     InputPath: $
     Parameters:
-      uri.$: States.Format('https://s3.{}.amazonaws.com/${DescriptionBucketName}/{}', $.Payload.region, $.Payload.key)
+      prompt.$: "States.Format('{} {}', $.result.basicPrompt, $.body.filecontent)"
+    ResultPath: $.completedPrompt
+
+  Create S3 result URI:
+    Type: Pass
+    Next: Bedrock InvokeModel
+    InputPath: $
+    Parameters:
+      uri.$: "States.Format('https://s3.us-east-1.amazonaws.com/bucket-us-east-1-abc1234-video-description/{}-result.json', States.ArrayGetItem(States.StringSplit($.detail.object.key, '/'),1))"
+    ResultPath: $.resultURI
+
+  Bedrock InvokeModel:
+    Type: Task
+    Resource: arn:aws:states:::bedrock:invokeModel
+    Parameters:
+      ModelId: arn:aws:bedrock:us-east-1::foundation-model/ai21.j2-ultra-v1
+      Output:
+        S3Uri.$: $.resultURI.uri
+      Body:
+        prompt.$: $.completedPrompt.prompt
+        maxTokens: 1666
+      ContentType: 'application/json'
+      Accept: 'application/json'
+    InputPath: $
+    ResultPath: $.result
+    Next: Format URI
+
+  Format URI:
+    Type: Pass
+    Next: GetSignedURL
+    InputPath: $.resultURI
     ResultPath: $
 
   GetSignedURL:
